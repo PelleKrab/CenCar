@@ -1,6 +1,11 @@
 [package]
 name = "CenCar"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+alloy = { version = "0.8", features = ["full"] }
+eyre = "0.6"
+dotenv = "0.15"
+futures-util = "0.3"
+tokio = { version = "1", features = ["full"] }
