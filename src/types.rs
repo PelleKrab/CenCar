@@ -1,6 +1,6 @@
 use alloy::primitives::{U256, Address};
 
-// Status of a tracked transaction
+// Status of a tracked t transaction
 #[derive(Debug, Clone, PartialEq)]
 pub enum TxStatus {
     Pending,
@@ -18,7 +18,6 @@ pub struct PendingTx {
     pub max_priority_fee: U256,
     pub max_fee: U256,
     pub nonce: u64,
-    // New fields for censorship detection
     pub first_seen: i64,
     pub gas_limit: u64,
     pub value: U256,
