@@ -5,10 +5,14 @@ use alloy::{
 };
 use eyre::Result;
 use futures_util::StreamExt;
+use tokio::sync::mpsc;
 use crate::config::Config;
 use crate::types::PendingTx;
 
-pub async fn spawn_monitor(config: Config) -> Result<()> {
+pub async fn spawn_monitor(
+    config: Config,
+    tx_sender: mpsc::Sender<PendingTx>,
+) -> Result<()> {
     println!("🔌 Connecting to WebSocket at: {}", config.rpc_url);
 
     // 1. Establish the WebSocket connection
@@ -22,9 +26,11 @@ pub async fn spawn_monitor(config: Config) -> Result<()> {
     println!("👀 Mempool Monitor Active. Waiting for transactions...");
 
     while let Some(tx_hash) = stream.next().await {
-        // 3. For every hash, fetch the full transaction details
-        // TODO: batch these or queue them.
         if let Ok(Some(tx)) = provider.get_transaction_by_hash(tx_hash).await {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
 
             let simple_tx = PendingTx {
                 hash: tx_hash.to_string(),
@@ -33,9 +39,16 @@ pub async fn spawn_monitor(config: Config) -> Result<()> {
                 max_priority_fee: U256::from(tx.inner.max_priority_fee_per_gas().unwrap_or_default()),
                 max_fee: U256::from(tx.inner.max_fee_per_gas()),
                 nonce: tx.inner.nonce(),
+                gas_limit: tx.inner.gas_limit(),
+                value: tx.inner.value(),
+                input_data_size: tx.inner.input().len(),
+                first_seen: now,
             };
 
-            println!("[NEW TX] Hash: {} | Priority Fee: {} wei", simple_tx.hash, simple_tx.max_priority_fee);
+            if let Err(e) = tx_sender.send(simple_tx).await {
+                eprintln!("Failed to send transaction to channel: {:?}", e);
+                break;
+            }
         }
     }
 
